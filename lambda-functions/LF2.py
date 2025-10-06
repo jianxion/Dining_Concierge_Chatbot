@@ -2,12 +2,10 @@ import json
 import os
 import random
 from datetime import datetime, timezone
-
 import boto3
 from botocore.exceptions import ClientError
-
 from opensearchpy import OpenSearch, RequestsHttpConnection
-from requests_aws4auth import AWS4Auth
+
 
 REGION = "us-east-1"
 SQS_QUEUE_URL = os.environ["SQS_QUEUE_URL"]
@@ -15,15 +13,12 @@ OS_ENDPOINT = os.environ["OPENSEARCH_ENDPOINT"].replace("https://", "")
 DDB_TABLE = os.environ["DDB_TABLE"]
 SES_FROM = os.environ["SES_FROM"]
 HITS_PER_EMAIL = int(os.getenv("HITS_PER_EMAIL", "3"))
-
-
-session = boto3.Session(region_name=REGION)
-credentials = session.get_credentials().get_frozen_credentials()
-awsauth = AWS4Auth(credentials.access_key, credentials.secret_key, REGION, "es", session_token=credentials.token)
+OS_USERNAME = os.getenv("OPENSEARCH_USERNAME")
+OS_PASSWORD = os.getenv("OPENSEARCH_PASSWORD")
 
 os_client = OpenSearch(
-    hosts=[{"host": OS_ENDPOINT, "port": 443}],
-    http_auth=awsauth,
+    hosts=[{"host": OS_ENDPOINT.replace("https://", ""), "port": 443}],
+    http_auth=(OS_USERNAME, OS_PASSWORD),
     use_ssl=True,
     verify_certs=True,
     connection_class=RequestsHttpConnection,
@@ -34,7 +29,7 @@ sqs = boto3.client("sqs", region_name=REGION)
 ddb = boto3.resource("dynamodb", region_name=REGION).Table(DDB_TABLE)
 ses = boto3.client("ses", region_name=REGION)
 
-def _receive_messages(max_msgs=2, visibility_timeout=30, wait_time=10):
+def _receive_messages(max_msgs=5, visibility_timeout=30, wait_time=10):
     resp = sqs.receive_message(
         QueueUrl=SQS_QUEUE_URL,
         MaxNumberOfMessages=max_msgs,
@@ -71,7 +66,6 @@ def _search_random_by_cuisine(cuisine, size=10):
 def _get_ddb_details(business_ids):
     """
     Fetch details from DynamoDB for the selected business IDs.
-    Optimized for small number of records (typically 3-5 for recommendations).
     Required fields: Business ID, Name, Address, Coordinates, Number of Reviews, Rating, Zip Code
     """
     if not business_ids:
@@ -80,7 +74,6 @@ def _get_ddb_details(business_ids):
     results = []
     dynamo = boto3.client("dynamodb", region_name=REGION)
     
-    # For small number of records, single batch_get_item is sufficient
     keys = [{"business_id": {"S": bid}} for bid in business_ids]
     
     try:
@@ -212,9 +205,9 @@ def process_one_message(msg):
 def lambda_handler(event, context):
     """
     Invoked by EventBridge (every minute).
-    Pull up to 10 messages, process each, delete on success.
+    Pull up to 5 messages, process each, delete on success.
     """
-    msgs = _receive_messages(max_msgs=2, visibility_timeout=60, wait_time=0)
+    msgs = _receive_messages(max_msgs=5, visibility_timeout=60, wait_time=0)
     if not msgs:
         print("No messages to process.")
         return {"ok": True, "processed": 0}

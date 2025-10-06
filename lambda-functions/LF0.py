@@ -19,7 +19,6 @@ CORS_HEADERS = {
 }
 
 
-
 def _derive_session_id(event):
     rc = event.get("requestContext", {}) or {}
     ip = (rc.get("identity") or {}).get("sourceIp") or "0.0.0.0"
@@ -44,7 +43,6 @@ def _err(status, msg):
     }
 
 def lambda_handler(event, context):
-    # Handle CORS preflight
     if event.get("httpMethod") == "OPTIONS":
         return {"statusCode": 204, "headers": CORS_HEADERS, "body": ""}
 
@@ -61,8 +59,7 @@ def lambda_handler(event, context):
 
     if not user_text:
         return _err(400, "Missing message text in BotRequest")
-
-    # session_id = payload.get("sessionId") or str(uuid.uuid4())[:100]
+                                                                                                                    
     session_id = (payload.get("sessionId") or _derive_session_id(event))[:100]
     print(f"Session ID: {session_id}")
 
