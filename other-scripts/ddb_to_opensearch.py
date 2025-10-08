@@ -8,7 +8,7 @@ load_dotenv()
 
 
 REGION = os.getenv("AWS_REGION", "us-east-1")
-OS_ENDPOINT = os.getenv("OPENSEARCH_ENDPOINT", "https://search-dining-concierge-opensearch-xepquenlwt3nkvpovtgjfcinpy.us-east-1.es.amazonaws.com")
+OS_ENDPOINT = os.getenv("OPENSEARCH_ENDPOINT")
 TABLE = os.getenv("DDB_TABLE", "yelp-restaurants")
 OS_USERNAME = os.getenv("OPENSEARCH_USERNAME")
 OS_PASSWORD = os.getenv("OPENSEARCH_PASSWORD")
