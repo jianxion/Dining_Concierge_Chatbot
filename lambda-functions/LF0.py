@@ -92,15 +92,5 @@ def lambda_handler(event, context):
             }
         })
 
-    # If Lex returned nothing, still send one placeholder message
-    if not response_messages:
-        response_messages.append({
-            "type": "unstructured",
-            "unstructured": {
-                "id": str(uuid.uuid4()),
-                "text": "…",
-                "timestamp": now_iso
-            }
-        })
 
     return _ok({"messages": response_messages})

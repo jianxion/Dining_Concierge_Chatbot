@@ -29,7 +29,7 @@ sqs = boto3.client("sqs", region_name=REGION)
 ddb = boto3.resource("dynamodb", region_name=REGION).Table(DDB_TABLE)
 ses = boto3.client("ses", region_name=REGION)
 
-def _receive_messages(max_msgs=5, visibility_timeout=30, wait_time=10):
+def _receive_messages(max_msgs=5, visibility_timeout=60, wait_time=0):
     resp = sqs.receive_message(
         QueueUrl=SQS_QUEUE_URL,
         MaxNumberOfMessages=max_msgs,
@@ -40,6 +40,21 @@ def _receive_messages(max_msgs=5, visibility_timeout=30, wait_time=10):
 
 def _delete_message(receipt_handle):
     sqs.delete_message(QueueUrl=SQS_QUEUE_URL, ReceiptHandle=receipt_handle)
+
+
+def _extract_payload(msg):
+    try:
+        return json.loads(msg.get("Body") or "{}")
+    except Exception:
+        return {}
+
+def _request_id_from(msg):
+    p = _extract_payload(msg)
+    return p.get("requestId") or msg.get("MessageId")
+
+def _to_email_from(msg):
+    p = _extract_payload(msg)
+    return p.get("email")
 
 
 # search OpenSearch for random restaurants by cuisine
@@ -220,6 +235,12 @@ def lambda_handler(event, context):
                 _delete_message(m["ReceiptHandle"])
                 processed += 1
         except Exception as e:
-            # Leave message in queue; visibility timeout will expire → will be retried
-            print("Error processing message:", e)
+            log = {
+                "event": "email_failed",
+                "requestId": _request_id_from(m),
+                "to": _to_email_from(m),
+                "lambdaRequestId": getattr(context, "aws_request_id", None),
+                "error": repr(e),
+            }
+            print(json.dumps(log))
     return {"ok": True, "processed": processed}

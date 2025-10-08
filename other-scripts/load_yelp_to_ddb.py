@@ -144,7 +144,6 @@ def main():
             to_write.append(item)
 
     print(f"Total unique businesses across cuisines: {len(to_write)}")
-    # Write in batches of ~300 to avoid huge single batch (batch_writer handles chunking internally)
     batch_write(table, to_write)
     print("Done. Wrote items to DynamoDB.")
 
